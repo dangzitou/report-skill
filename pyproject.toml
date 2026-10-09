@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "report-skill"
+version = "0.1.0"
+description = "Daily & weekly work reports from your Claude Code / Codex / ZCode chats and git history. 根据本地 AI Agent 对话与 git 记录自动写日报周报。"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "dangzitou" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["daily-report", "weekly-report", "standup", "claude-code", "codex", "zcode", "git", "agent-skill", "日报", "周报"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Office/Business",
+  "Topic :: Software Development :: Version Control :: Git",
+]
+
+[project.urls]
+Homepage = "https://github.com/dangzitou/report-skill"
+Issues = "https://github.com/dangzitou/report-skill/issues"
+
+[project.scripts]
+report-skill = "report_skill.cli:main"
+
+[tool.setuptools]
+packages = ["report_skill", "report_skill.collectors"]
+
+[tool.setuptools.package-data]
+report_skill = ["skill/*.md", "skill/references/*.md"]
