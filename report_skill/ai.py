@@ -55,8 +55,9 @@ INSTRUCTIONS = {
 4. 风险只从证据推断，比如反复报错、回滚提交、明确受阻；没有就写一行 `[待补充：有无卡点 / 需要的支持]`。
 5. 计划根据未完成的线索推断，每条带交付物和节点；推断不出的用 `[待确认]`。
 6. 时长是按活动间隔估算的，最多写“约 X 小时”，不要精确到分钟。
-7. 只输出 Markdown 正文：不要前言，不要解释，也不要用代码块包裹。
-8. 篇幅：{length}。
+7. DATA.lark 来自飞书：tasks_completed 是已完成的证据，可以直接写进成果；meetings 只挑评审、决策、对齐类的关键会议，用一句话带过，例会不必逐条列；tasks_open_due_soon 是排计划的首要依据，截止日期要保留。
+8. 只输出 Markdown 正文：不要前言，不要解释，也不要用代码块包裹。
+9. 篇幅：{length}。
 
 参考结构（可按实际删减）：
 {template}""",
@@ -69,8 +70,9 @@ Follow GUIDE strictly. Also:
 4. Risks only from evidence (repeated errors, reverts, explicit blockers); otherwise one line `[fill in: blockers / support needed]`.
 5. Infer the plan from unfinished threads; each item gets a deliverable and a deadline, or `[to confirm]`.
 6. Time is an estimate from activity gaps; at most say "about X hours".
-7. Output the Markdown report only: no preamble, no explanations, no code fences around it.
-8. Length: {length}.
+7. DATA.lark comes from Lark/Feishu: tasks_completed is evidence of done work; from meetings mention only key reviews, decisions or alignments in one line (skip routine syncs); tasks_open_due_soon is the primary input for the plan, keep their due dates.
+8. Output the Markdown report only: no preamble, no explanations, no code fences around it.
+9. Length: {length}.
 
 Suggested structure (trim as needed):
 {template}""",

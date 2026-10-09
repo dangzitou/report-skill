@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 DEFAULTS: Dict[str, Any] = {
     "lang": None,  # "zh" | "en"; None = the language you mostly type in
-    "sources": ["claude-code", "codex", "zcode", "git"],
+    "sources": ["claude-code", "codex", "zcode", "git", "lark"],  # lark is used only if lark-cli is installed
     "authors": [],  # git author emails/names; empty = your global git identity
     "repos": [],  # extra repos to always include
     "scan_roots": [],  # directories to scan for repos (depth 3)
@@ -22,6 +22,13 @@ DEFAULTS: Dict[str, Any] = {
     "ai": None,  # "claude" | "codex"; None = first one installed
     "ai_model": None,  # e.g. "sonnet", "gpt-5.5"; None = the CLI's own default
     "ai_command": None,  # e.g. ["claude", "-p"]; the prompt is piped on stdin
+    "lark": {
+        "identity": "user",  # "user" or "bot" (lark-cli --as)
+        "include": ["calendar", "tasks"],  # what to read from Lark
+        "targets": {},  # aliases for --to-lark, e.g. {"leader": "ou_xxx", "team": "oc_xxx"}
+        "send_to": None,  # default target when --to-lark is given without a value
+        "doc_folder": None,  # parent folder / wiki token for --lark-doc
+    },
     "author_name": "",
     "audience": "",  # who reads it, e.g. "my team lead"
 }
@@ -53,7 +60,11 @@ def load() -> Dict[str, Any]:
     if path.exists():
         with open(path, encoding="utf-8") as fh:
             user = json.load(fh)
-        cfg.update({k: v for k, v in user.items() if not k.startswith("_")})
+        for k, v in user.items():
+            if k.startswith("_"):
+                continue
+            # Merge nested sections so a partial "lark" block keeps the other defaults.
+            cfg[k] = {**cfg[k], **v} if isinstance(v, dict) and isinstance(cfg.get(k), dict) else v
     return cfg
 
 
@@ -72,11 +83,64 @@ def init(force: bool = False) -> Path:
     path = config_path()
     if path.exists() and not force:
         raise FileExistsError(str(path))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    sample = dict(DEFAULTS)
-    sample["scan_roots"] = ["~/Developer", "~/code", "~/projects"]
-    sample["_doc"] = "See https://github.com/dangzitou/report-skill#configuration"
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(sample, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
+    # Only overrides live here, so new defaults in later versions still apply.
+    _write_user({"_doc": "All keys are optional. Change with `report-skill config set KEY VALUE`; "
+                         "see https://github.com/dangzitou/report-skill#configuration"})
     return path
+
+
+def _read_user() -> Dict[str, Any]:
+    path = config_path()
+    if not path.exists():
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _write_user(data: Dict[str, Any]) -> None:
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+
+
+def _parse(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except ValueError:
+        return value  # plain strings don't need quotes
+
+
+def get_value(cfg: Dict[str, Any], key: str) -> Any:
+    node: Any = cfg
+    for part in key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def set_value(key: str, value: Any) -> None:
+    """Set a dotted key in the user's config file, e.g. lark.targets.leader = ou_xxx."""
+    data = _read_user()
+    node = data
+    parts = key.split(".")
+    for part in parts[:-1]:
+        if not isinstance(node.get(part), dict):
+            node[part] = {}
+        node = node[part]
+    node[parts[-1]] = _parse(value) if isinstance(value, str) else value
+    _write_user(data)
+
+
+def unset_value(key: str) -> None:
+    data = _read_user()
+    node = data
+    parts = key.split(".")
+    for part in parts[:-1]:
+        node = node.get(part)
+        if not isinstance(node, dict):
+            return
+    node.pop(parts[-1], None)
+    _write_user(data)

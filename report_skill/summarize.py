@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from . import lark as lark_adapter
 from .collectors import AGENT_COLLECTORS
 from .collectors import git as gitc
 from .models import Commit, Session
@@ -46,6 +47,7 @@ class Report:
     minutes_by_day: Dict[date, int]
     sources: Dict[str, int]  # source -> number of sessions / commits found
     warnings: List[str] = field(default_factory=list)
+    lark: lark_adapter.LarkActivity = field(default_factory=lark_adapter.LarkActivity)
 
     @property
     def commits(self) -> List[Commit]:
@@ -152,8 +154,13 @@ def build(period: Period, cfg: Dict[str, Any], only: Optional[List[str]] = None)
         by_day[(t - timedelta(hours=day_start)).date()].append(t)
     minutes_by_day = {d: _active_minutes(by_day.get(d, []), idle) if by_day.get(d) else 0 for d in period.days}
 
+    activity = lark_adapter.LarkActivity()
+    if "lark" in wanted and lark_adapter.available():
+        activity = lark_adapter.collect(period.start, period.end, cfg, warnings)
+        sources["lark"] = len(activity.meetings) + len(activity.tasks_done)
+
     ordered = sorted(projects.values(), key=lambda p: (p.minutes, len(p.commits)), reverse=True)
-    return Report(period, ordered, sum(minutes_by_day.values()), minutes_by_day, sources, warnings)
+    return Report(period, ordered, sum(minutes_by_day.values()), minutes_by_day, sources, warnings, activity)
 
 
 def to_dict(report: Report) -> Dict[str, Any]:
@@ -172,6 +179,15 @@ def to_dict(report: Report) -> Dict[str, Any]:
             "prompts": sum(p.prompt_count for p in report.projects),
         },
         "minutes_by_day": {d.isoformat(): m for d, m in report.minutes_by_day.items()},
+        "lark": {
+            "meetings": [{"summary": m.summary, "start": m.start.isoformat(timespec="minutes"),
+                          "minutes": m.minutes, "rsvp": m.rsvp} for m in report.lark.meetings],
+            "tasks_completed": [{"summary": t.summary, "completed_at": t.completed_at.isoformat(timespec="minutes")}
+                                for t in report.lark.tasks_done],
+            "tasks_open_due_soon": [{"summary": t.summary,
+                                     "due_at": t.due_at.isoformat(timespec="minutes") if t.due_at else None}
+                                    for t in report.lark.tasks_open],
+        },
         "sources": report.sources,
         "warnings": report.warnings,
         "projects": [

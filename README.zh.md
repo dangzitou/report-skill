@@ -22,10 +22,13 @@
 
 其实你这周做的事，你的 AI Agent 都记着：每一句「帮我修这个 bug」、每一次改动的文件、每一个 commit。**report-skill 读取这些本地记录，按照大厂汇报的写法整理成报告**：结论先行，写结果不写过程，问题带方案，计划带节点。
 
-```bash
-report-skill          # 今天的日报
-report-skill week     # 本周周报
+**安装只需要一句话。** 把下面这句发给你的 Claude Code / Codex / ZCode：
+
+```text
+帮我安装 report-skill：https://raw.githubusercontent.com/dangzitou/report-skill/main/INSTALL.md
 ```
+
+装好之后，跟它说「写今天的日报」或者「把上周的周报发给老板」就行。
 
 ## 效果
 
@@ -69,16 +72,42 @@ report-skill week     # 本周周报
 
 > 示例为虚构数据。注意两点：简历相关的对话被自动略去；所有材料里没有的数字，都标成了 `[待确认]`，不会编。
 
-## 30 秒上手
+## 安装
+
+### 方式一：让 Agent 帮你装（推荐）
+
+把这句话发给任意一个编程 Agent（Claude Code、Codex、ZCode、OpenCode、Cursor……）：
+
+```text
+帮我安装 report-skill：https://raw.githubusercontent.com/dangzitou/report-skill/main/INSTALL.md
+```
+
+[INSTALL.md](INSTALL.md) 是专门写给 Agent 看的安装手册。Agent 会按步骤完成以下几件事：
+
+1. 安装 CLI，会自动选择 uv、pipx 或私有 venv 中能用的那一种；
+2. 把 skill 装进本机所有 Agent 的 skills 目录；
+3. 验证能读到哪些数据；
+4. 如果你用飞书，还会帮你接上。
+
+整个过程中只有飞书授权需要你在浏览器里点一下，其余都由 Agent 完成。
+
+### 方式二：自己装，一行命令
 
 ```bash
-# 安装（任选一种；零依赖，Python 3.9+）
-uv tool install git+https://github.com/dangzitou/report-skill
-pipx install git+https://github.com/dangzitou/report-skill
-
-# 不装也能先试试
-uvx --from git+https://github.com/dangzitou/report-skill report-skill
+curl -fsSL https://raw.githubusercontent.com/dangzitou/report-skill/main/install.sh | sh
 ```
+
+这行命令会顺便执行 `report-skill setup`，把 skill 装进 Claude Code、Codex、ZCode、OpenCode 以及 `~/.agents`，并生成配置。重复运行是安全的，也可以当作升级用。Windows 用户可以用 `uv tool install "report-skill @ git+https://github.com/dangzitou/report-skill"`，装好后再运行 `report-skill setup`。
+
+## 使用
+
+### 在 Agent 里（推荐）
+
+> 写今天的日报 / 写上周的周报，语气正式一点 / 把本周周报发给 leader / 存成飞书文档 / what did I do this week?
+
+Agent 会先运行 `report-skill <时间> --prompt`，拿到事实和写作规范，然后亲自写出报告，你可以接着让它改。如果你让它发出去，它会调用 `report-skill send`。
+
+### 在终端里
 
 不需要任何配置。它会自动找到本机的 Agent 记录，用你全局的 git 身份筛出你自己的提交，然后调用本机已经装好的 `claude` 或 `codex` CLI 把事实写成报告。如果都没装，它会输出一份排好版的离线草稿。
 
@@ -96,17 +125,13 @@ report-skill --lang en       # 指定语言（默认跟随你平时打字的语�
 report-skill doctor          # 看看都找到了哪些数据源
 ```
 
-## 在 Agent 里用：说一句「写日报」就行
+### 对 Agent 友好的设计
 
-```bash
-report-skill install-skill
-```
-
-这条命令会把 skill 装进 `~/.claude/skills`、`~/.codex/skills` 和 `~/.zcode/skills`（只装本机存在的）。之后在 Claude Code、Codex 或 ZCode 里直接说：
-
-> 帮我写今天的日报 / 写上周的周报，语气正式一点 / what did I do this week?
-
-Agent 会自己调用 `report-skill`，拿到事实和写作规范，然后当场写出来，你还可以接着让它改。
+- **从不卡在交互上**：不是在终端里运行时（stdin 不是 TTY）绝不会弹出询问。
+- **机器可读**：`setup`、`doctor`、`send` 都支持 `--json`。
+- **退出码**：`0` 成功；`1` 出错，JSON 里的 `fix` 字段会给出修复命令；`2` 参数不对；`3` 需要用户同意，Agent 问过用户后加 `--yes` 重跑即可。
+- **改配置不用编辑 JSON**：`report-skill config set lark.send_to leader`。
+- **发送 Agent 自己写的报告**：`report-skill send report.md --to-lark leader --yes --json`。
 
 ## 读哪些数据
 
@@ -116,8 +141,31 @@ Agent 会自己调用 `report-skill`，拿到事实和写作规范，然后当�
 | Codex（CLI / Desktop） | `~/.codex/sessions/**/rollout-*.jsonl` | 你的提问、线程名、`apply_patch` 改过的文件 |
 | ZCode | `~/.zcode/cli/db/db.sqlite` | 你的提问、任务标题、改过的文件 |
 | git | 上面这些会话涉及的仓库，以及你配置的目录 | **你自己的**提交、改动行数（会自动合并 worktree） |
+| 飞书 / Lark（可选） | 通过官方 [lark-cli](https://github.com/larksuite/cli) | 参加的会议、完成的任务、即将到期的任务 |
 
 所有读取都是**只读**的。它会先过滤掉 Agent 自动注入的系统提示、`AGENTS.md`、工具输出这类噪音，只保留你亲手打的字。
+
+## 飞书 / Lark：读日程和任务，一键发给领导
+
+如果你装了官方的 [lark-cli](https://github.com/larksuite/cli)，report-skill 会自动接入，不用额外配置：
+
+- **读**：从日历读取你参加的会议（已拒绝的会自动跳过），从任务读取期间完成的任务，以及即将到期的任务。完成的任务会作为“已完成”的证据写进成果；即将到期的任务会直接成为「明日计划 / 下周计划」，并保留截止日期。这样计划一栏就不用再空着让你自己填了。
+- **发**：报告写好后，可以直接发到飞书，或者存成一篇飞书云文档。
+
+```bash
+# 一次性准备：安装并登录 lark-cli
+npx @larksuite/cli@latest install
+lark-cli auth login --domain calendar,task,im,docs
+
+report-skill --to-lark me                   # 先发给自己当草稿（不需要确认）
+report-skill --to-lark ou_xxxxxxxx          # 私聊发给某人（open_id）
+report-skill week --to-lark oc_xxxxxxxx     # 发到群（chat_id）
+report-skill week --to-lark leader          # 用配置里的别名
+report-skill week --lark-doc                # 存成飞书云文档，并输出链接
+report-skill --to-lark leader --dry-run     # 只预览请求，不真的发送
+```
+
+发给别人的消息会被看到，所以**除了发给自己，发送前一定会先问你确认**。在脚本或定时任务里不方便交互时，需要显式加上 `--yes`。默认以你本人的身份发送（`--as user`）。如果想用机器人身份发，在配置里把 `lark.identity` 设为 `"bot"`，并确保机器人已经在目标群里。
 
 ## 为什么它写得像样：一份写进 prompt 的汇报方法论
 
@@ -143,7 +191,7 @@ Agent 会自己调用 `report-skill`，拿到事实和写作规范，然后当�
 
 ## 配置（可选）
 
-不配置也能用。如果需要配置，运行 `report-skill init` 生成 `~/.config/report-skill/config.json`：
+不配置也能用。所有设置都可以用命令改，比如 `report-skill config set lang zh`、`report-skill config set lark.targets.leader ou_xxx`，也可以直接让 Agent 帮你改。配置文件在 `~/.config/report-skill/config.json`，所有键都是可选的：
 
 ```jsonc
 {
@@ -156,7 +204,14 @@ Agent 会自己调用 `report-skill`，拿到事实和写作规范，然后当�
   "exclude": ["*/playground/*"],        // 不想出现在报告里的项目
   "aliases": {"/Users/me/work/svc-ord": "订单服务"},  // 项目显示名
   "day_start_hour": 4,                  // 几点之前算前一天
-  "sources": ["claude-code", "codex", "zcode", "git"],
+  "sources": ["claude-code", "codex", "zcode", "git", "lark"],
+  "lark": {
+    "identity": "user",                 // 以谁的身份调用 lark-cli：user | bot
+    "include": ["calendar", "tasks"],   // 从飞书读什么
+    "targets": {"leader": "ou_xxx", "team": "oc_xxx"},  // --to-lark 的别名
+    "send_to": "leader",                // 只写 --to-lark 不带参数时的默认对象
+    "doc_folder": null                  // --lark-doc 存到哪个文件夹 / 知识库节点
+  },
   "author_name": "小王",
   "audience": "直属领导"
 }
@@ -174,6 +229,9 @@ Agent 会自己调用 `report-skill`，拿到事实和写作规范，然后当�
 
 **同时开了好几个会话，时间会重复算吗？**
 总时长是把所有事件放在同一条时间线上算的，不会重复。分项目的时长是各自单独算的，所以加起来可能比总时长多。
+
+**飞书的 open_id / chat_id 去哪找？**
+可以运行 `lark-cli contact +search-user --query 张三` 和 `lark-cli im +chat-search --query 项目群`，或者直接在 Agent 里让它用 lark-cli 帮你查。
 
 **我用的是 Cursor / Gemini CLI / OpenCode……**
 欢迎提 [issue](https://github.com/dangzitou/report-skill/issues/new?template=new_source.md) 或 PR。一个 collector 大约 80 行，可以参考 [`claude_code.py`](report_skill/collectors/claude_code.py)。

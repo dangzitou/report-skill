@@ -24,5 +24,25 @@ jobs:
         run: |
           pip install .
           report-skill --version
-          report-skill doctor
+          report-skill setup --json
+          report-skill doctor --json
           report-skill week --raw
+
+  installer:
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.sh from this commit
+        env:
+          REPORT_SKILL_REF: ${{ github.sha }}
+        run: |
+          mkdir -p ~/.claude
+          sh install.sh | tee out.txt
+          tail -1 out.txt | grep -q '^REPORT_SKILL_OK '
+          test -f ~/.claude/skills/report-skill/SKILL.md
+          ~/.local/bin/report-skill doctor
