@@ -45,4 +45,4 @@ jobs:
           sh install.sh | tee out.txt
           tail -1 out.txt | grep -q '^REPORT_SKILL_OK '
           test -f ~/.claude/skills/report-skill/SKILL.md
-          ~/.local/bin/report-skill doctor
+          "$(tail -1 out.txt | cut -d' ' -f2-)" doctor
